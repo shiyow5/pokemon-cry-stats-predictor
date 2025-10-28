@@ -113,7 +113,7 @@ def run_training(model_type, params, test_size, random_state):
             cmd,
             capture_output=True,
             text=True,
-            timeout=300  # 5 minute timeout
+            timeout=600  # 10 minute timeout for all models
         )
 
         if result.returncode == 0:
@@ -128,7 +128,7 @@ def run_training(model_type, params, test_size, random_state):
                 "error": result.stderr or result.stdout
             }
     except subprocess.TimeoutExpired:
-        return {"success": False, "error": "Training timed out after 5 minutes"}
+        return {"success": False, "error": "Training timed out after 10 minutes"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
