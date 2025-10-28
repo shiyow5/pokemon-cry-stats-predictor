@@ -79,25 +79,37 @@ def extract_features(audio_path):
 
 def process_all_audio():
     """全ての音声ファイルを処理"""
+    # ディレクトリが存在しない場合のエラーチェック
+    if not os.path.exists(DATA_DIR):
+        print(f"❌ Error: {DATA_DIR} directory not found!")
+        print(f"   Please run 'python scripts/download_cries.py' first to download audio files.")
+        raise FileNotFoundError(f"{DATA_DIR} directory does not exist")
+    
+    audio_files = [f for f in os.listdir(DATA_DIR) if f.endswith((".wav", ".ogg"))]
+    
+    if len(audio_files) == 0:
+        print(f"⚠️  Warning: No audio files found in {DATA_DIR}")
+        print(f"   Please run 'python scripts/download_cries.py' first to download audio files.")
+        raise FileNotFoundError(f"No audio files found in {DATA_DIR}")
+    
     data = []
-    total_files = len([f for f in os.listdir(DATA_DIR) if f.endswith((".wav", ".ogg"))])
+    total_files = len(audio_files)
     
     print(f"Processing {total_files} audio files...")
     
-    for i, file in enumerate(os.listdir(DATA_DIR), 1):
-        if file.endswith(".wav") or file.endswith(".ogg"):
-            name = os.path.splitext(file)[0]
-            path = os.path.join(DATA_DIR, file)
+    for i, file in enumerate(audio_files, 1):
+        name = os.path.splitext(file)[0]
+        path = os.path.join(DATA_DIR, file)
+        
+        try:
+            feats = extract_features(path)
+            feats["name"] = name
+            data.append(feats)
             
-            try:
-                feats = extract_features(path)
-                feats["name"] = name
-                data.append(feats)
-                
-                if i % 10 == 0:
-                    print(f"  [{i}/{total_files}] Processed")
-            except Exception as e:
-                print(f"  Error processing {name}: {e}")
+            if i % 10 == 0:
+                print(f"  [{i}/{total_files}] Processed")
+        except Exception as e:
+            print(f"  Error processing {name}: {e}")
     
     df = pd.DataFrame(data)
     df.to_csv(OUTPUT_PATH, index=False)

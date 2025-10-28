@@ -17,6 +17,23 @@ def download_pokemon_cries(max_pokemon=None):
     # ディレクトリ作成
     os.makedirs(DATA_DIR, exist_ok=True)
     
+    # ステータスCSVが存在しない場合は自動的に取得
+    if not os.path.exists(STATS_PATH):
+        print(f"⚠️  {STATS_PATH} not found. Fetching Pokémon stats data first...")
+        try:
+            # data ディレクトリも作成
+            os.makedirs("data", exist_ok=True)
+            # fetch_stats モジュールをインポートして実行
+            import sys
+            sys.path.insert(0, 'scripts')
+            from fetch_stats import fetch_pokemon_stats
+            fetch_pokemon_stats()
+            print("✅ Stats data fetched successfully!")
+        except Exception as e:
+            print(f"❌ Error: Failed to fetch stats data: {e}")
+            print(f"   Please run 'python scripts/fetch_stats.py' first.")
+            raise
+    
     # ステータスCSVから対象ポケモンを取得
     stats_df = pd.read_csv(STATS_PATH)
     pokemon_names = stats_df['name'].tolist()

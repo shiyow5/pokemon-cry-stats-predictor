@@ -29,15 +29,29 @@ def extract_features(audio_path):
     return features
 
 def process_all_audio():
+    # ディレクトリが存在しない場合のエラーチェック
+    if not os.path.exists(DATA_DIR):
+        print(f"❌ Error: {DATA_DIR} directory not found!")
+        print(f"   Please run 'python scripts/download_cries.py' first to download audio files.")
+        raise FileNotFoundError(f"{DATA_DIR} directory does not exist")
+    
     data = []
-    for file in os.listdir(DATA_DIR):
-        if file.endswith(".wav") or file.endswith(".ogg"):
-            name = os.path.splitext(file)[0]
-            path = os.path.join(DATA_DIR, file)
-            feats = extract_features(path)
-            feats["name"] = name
-            data.append(feats)
-            print(f"Processed: {name}")
+    audio_files = [f for f in os.listdir(DATA_DIR) if f.endswith(".wav") or f.endswith(".ogg")]
+    
+    if len(audio_files) == 0:
+        print(f"⚠️  Warning: No audio files found in {DATA_DIR}")
+        print(f"   Please run 'python scripts/download_cries.py' first to download audio files.")
+        raise FileNotFoundError(f"No audio files found in {DATA_DIR}")
+    
+    print(f"Found {len(audio_files)} audio files to process")
+    
+    for file in audio_files:
+        name = os.path.splitext(file)[0]
+        path = os.path.join(DATA_DIR, file)
+        feats = extract_features(path)
+        feats["name"] = name
+        data.append(feats)
+        print(f"Processed: {name}")
     
     df = pd.DataFrame(data)
     df.to_csv(OUTPUT_PATH, index=False)

@@ -1,10 +1,13 @@
 import pandas as pd
+import os
 
 def fetch_pokemon_stats():
     """
     Pokémonのステータスデータを取得し、整形して保存する。
     veekun/pokedexから取得したCSVを加工する。
     """
+    # データディレクトリを作成
+    os.makedirs("data", exist_ok=True)
     # pokemon.csvから基本情報を取得
     pokemon_url = "https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/pokemon.csv"
     pokemon_df = pd.read_csv(pokemon_url)
