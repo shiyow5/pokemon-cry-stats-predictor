@@ -1,6 +1,13 @@
 # Pokémon Cry Stats Predictor
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange.svg)](https://www.tensorflow.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.50+-red.svg)](https://streamlit.io/)
+
 ポケモンの鳴き声から6つのステータス（HP、攻撃、防御、素早さ、特攻、特防）を予測する機械学習プロジェクト。
+
+⚠️ **このプロジェクトは学術・研究・教育目的のみを意図しています。ポケモンは任天堂・クリーチャーズ・ゲームフリークの登録商標です。**
 
 ## 📊 プロジェクト概要
 
@@ -458,20 +465,64 @@ brew install font-noto-sans-cjk-jp
 - **XGBoost**: https://xgboost.readthedocs.io/ - 勾配ブースティング
 - **TensorFlow/Keras**: https://www.tensorflow.org/ - ディープラーニング
 
-## 📄 ライセンスと注意事項
+## 📄 ライセンス
 
-- 音声ファイルは著作権の対象となる場合があります
-- 学術・研究・非営利目的に限り利用してください
-- 商用利用・再配布には元データのライセンスを確認してください
-- PokeAPIの利用規約: https://pokeapi.co/docs/v2
+このプロジェクトのソースコードはMITライセンスの下で公開されています。詳細は [LICENSE](LICENSE) ファイルを参照してください。
+
+## ⚠️ 重要な注意事項
+
+### ポケモン関連の著作権について
+
+**このプロジェクトは学術・研究・教育目的のみを意図しています。**
+
+- **ポケモン**は任天堂・クリーチャーズ・ゲームフリークの登録商標です
+- ポケモンの名称、画像、音声データの著作権は株式会社ポケモン及び関連会社に帰属します
+- このプロジェクトで使用するポケモンデータは以下のオープンソースプロジェクトから取得しています：
+  - **PokeAPI** (https://pokeapi.co/) - 音声・画像データ（Fair Useに基づく非営利使用）
+  - **veekun/pokedex** (https://github.com/veekun/pokedex) - ステータスデータ
+
+### 利用制限
+
+✅ **許可される使用:**
+- 個人的な学習・研究目的
+- 教育目的での使用
+- 非営利的なデータ分析・機械学習の研究
+- オープンソースプロジェクトへの貢献
+
+❌ **禁止される使用:**
+- 商用利用（販売、有料サービスへの組み込みなど）
+- ポケモンデータの再配布・二次配布
+- 著作権者の権利を侵害する行為
+- PokeAPIの利用規約に違反する行為
+
+### 免責事項
+
+**このプロジェクトの利用により生じたいかなる損害についても、開発者は一切の責任を負いません。**
+
+- データの正確性は保証されません
+- ポケモン関連データの使用については、各自の責任で著作権法を遵守してください
+- 商用利用を検討する場合は、必ず株式会社ポケモンの正式な許諾を得てください
+
+### データソースの利用規約
+
+- **PokeAPI利用規約**: https://pokeapi.co/docs/v2
+- **veekun/pokedex**: MIT License (https://github.com/veekun/pokedex/blob/master/LICENSE)
+
+**音声・画像データを含むデータセットをこのリポジトリで配布することはありません。** ユーザーが各自でPokeAPIから取得する必要があります
 
 ## 🤝 貢献
 
 このプロジェクトへの貢献を歓迎します：
-- バグ報告
+- バグ報告・Issue作成
 - 機能追加の提案
-- コードの改善
+- コードの改善（Pull Request）
 - ドキュメントの改善
+- モデル性能の改善
+
+**貢献する際の注意:**
+- ポケモン関連データ（音声、画像）をコミットに含めないでください
+- `.gitignore`で除外されているファイルは共有しないでください
+- コードのみを貢献してください
 
 ## 📞 サポート
 
@@ -562,5 +613,11 @@ lsof -ti:8501 | xargs kill -9
 
 ---
 
-**Project Status**: Active Development
-**Last Updated**: 2025-10-28
+**Project Status**: Active Development  
+**Last Updated**: 2025-10-28  
+**License**: MIT (see [LICENSE](LICENSE) for full details)  
+**Author**: shiyow5
+
+## 📢 免責事項
+
+このプロジェクトの利用により生じたいかなる損害についても、開発者は一切の責任を負いません。ポケモン関連データの使用については、各自の責任で著作権法を遵守してください。詳細は[ライセンスセクション](#-ライセンス)を参照してください
