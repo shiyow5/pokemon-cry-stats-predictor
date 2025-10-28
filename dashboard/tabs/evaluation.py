@@ -18,8 +18,22 @@ def render():
     results = load_latest_results()
     
     if results is None:
-        st.error("⚠️ No model results found. Please train models first by running:")
-        st.code("python scripts/train_model_advanced.py", language="bash")
+        st.error("⚠️ **No model results found!**")
+        st.warning("""
+No trained models or evaluation results were found.
+
+This usually means:
+- Models haven't been trained yet
+- Data files are missing
+- Training was interrupted or failed
+        """)
+        st.info("""
+**How to fix:**
+1. Go to the **🏋️ Train** tab to train models using the UI, OR
+2. Run training via command line: `python scripts/train_model_advanced.py`
+
+**Note:** Training requires the dataset to be initialized first. Visit **📁 Data Management** if needed.
+        """)
         return
     
     # Overall comparison section

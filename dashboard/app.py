@@ -18,6 +18,23 @@ st.set_page_config(
 # Title and description
 st.title("🎮 Pokémon Cry Stats Predictor Dashboard")
 
+# Check data availability on startup
+from dashboard.utils.data_initializer import check_data_files, get_missing_files
+
+missing_files = get_missing_files()
+if missing_files:
+    st.warning("""
+    ⚠️ **Data files are missing!** Some features may not work properly.
+    
+    Please visit the **📁 Data Management** tab to initialize the dataset.
+    """)
+    with st.expander("ℹ️ What's missing?"):
+        st.write("The following data files are missing:")
+        for file in missing_files:
+            st.write(f"- {file}")
+        st.write("")
+        st.info("Go to the **📁 Data Management** tab and click '🚀 Initialize Dataset Now' to fix this.")
+
 st.markdown("""
 Welcome to the **Pokémon Cry Stats Predictor**! This interactive dashboard allows you to:
 

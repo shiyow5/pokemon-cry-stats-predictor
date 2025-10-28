@@ -547,6 +547,58 @@ def render():
     st.write(
         "Manage the Pokémon training dataset. View, search, delete, or add Pokémon to the training data."
     )
+    
+    # Import data initializer
+    from dashboard.utils.data_initializer import check_data_files, get_missing_files, initialize_dataset
+    
+    # Check if data files exist
+    missing_files = get_missing_files()
+    
+    if missing_files:
+        st.error(f"⚠️ **Missing Data Files Detected!**")
+        st.warning(f"""
+The following required data files are missing:
+{chr(10).join([f'- {file}' for file in missing_files])}
+
+This usually happens on first deployment or when data files are not in the repository.
+        """)
+        
+        st.info("""
+**Solution:** Click the button below to automatically initialize the dataset.
+This will:
+1. Fetch Pokémon stats from external API
+2. Download Pokémon cry audio files
+3. Extract audio features
+4. Create all necessary data files
+
+This process may take 5-10 minutes depending on the number of Pokémon.
+        """)
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🚀 Initialize Dataset Now", type="primary", use_container_width=True):
+                progress_placeholder = st.empty()
+                
+                def progress_callback(message):
+                    progress_placeholder.info(message)
+                
+                with st.spinner("Initializing dataset..."):
+                    success, message = initialize_dataset(max_pokemon=100, progress_callback=progress_callback)
+                    
+                    if success:
+                        st.success(message)
+                        st.balloons()
+                        st.info("🔄 Reloading page to show the new dataset...")
+                        # Clear cache
+                        load_pokemon_data.clear()
+                        st.rerun()
+                    else:
+                        st.error(message)
+                        st.error("Please check the logs or try running the initialization scripts manually.")
+        
+        st.divider()
+        st.warning("⚠️ The Data Management features below require the dataset to be initialized first.")
+        return  # Don't show the rest of the UI until data is initialized
 
     # Check if delete dialog should be shown
     if st.session_state.get('show_delete_dialog', False):

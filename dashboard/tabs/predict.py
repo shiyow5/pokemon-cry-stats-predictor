@@ -117,6 +117,20 @@ def render():
         "The system will also show the most similar Pokémon based on audio features."
     )
     
+    # Check if data files exist
+    from dashboard.utils.data_initializer import get_missing_files
+    missing_files = get_missing_files()
+    
+    if missing_files:
+        st.error("⚠️ **Missing Data Files!**")
+        st.warning(f"""
+Required data files are missing: {', '.join(missing_files)}
+
+Please visit the **📁 Data Management** tab to initialize the dataset before using predictions.
+        """)
+        st.info("💡 Go to **📁 Data Management** → Click '🚀 Initialize Dataset Now'")
+        return
+    
     # Load model once
     if "model" not in st.session_state or "scaler" not in st.session_state:
         with st.spinner("Loading model..."):

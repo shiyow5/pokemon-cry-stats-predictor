@@ -145,15 +145,28 @@ def render():
     data_status = check_data_availability()
     
     if not all(data_status.values()):
-        st.error("❌ Required data files are missing!")
-        st.write("Missing files:")
+        st.error("❌ **Required data files are missing!**")
+        st.warning("The following files are missing:")
         for key, available in data_status.items():
             if not available:
                 st.write(f"- {key}")
-        st.info("Please run the data preparation scripts first:\n"
-                "1. `python scripts/fetch_stats.py`\n"
-                "2. `python scripts/download_cries.py`\n"
-                "3. `python scripts/extract_audio_features_advanced.py`")
+        st.info("""
+**How to fix:**
+
+**Option 1 (Recommended):** Use the UI
+- Go to the **📁 Data Management** tab
+- Click the '🚀 Initialize Dataset Now' button
+- Wait for the initialization to complete (5-10 minutes)
+
+**Option 2:** Use command line scripts
+```bash
+# Run these commands in order:
+python scripts/fetch_stats.py
+python scripts/download_cries.py
+python scripts/extract_audio_features_advanced.py
+python scripts/merge_dataset_advanced.py
+```
+        """)
         return
     
     st.success("✅ All required data files are available")
