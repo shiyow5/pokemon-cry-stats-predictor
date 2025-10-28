@@ -97,7 +97,7 @@ def run_training(model_type, params, test_size, random_state):
     
     # Build command line arguments
     cmd = [
-        "python", script_path,
+        sys.executable, script_path,
         "--model-type", model_type,
         "--test-size", str(test_size),
         "--random-state", str(random_state)
