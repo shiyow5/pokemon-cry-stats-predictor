@@ -87,14 +87,6 @@ def run_training(model_type, params, test_size, random_state):
     if not os.path.exists(script_path):
         return {"error": "Training script not found. Please ensure train_model_advanced.py exists."}
     
-    # Create a temporary config file for training parameters
-    config = {
-        "model_type": model_type,
-        "params": params,
-        "test_size": test_size,
-        "random_state": random_state
-    }
-    
     # Build command line arguments
     cmd = [
         sys.executable, script_path,
@@ -108,27 +100,35 @@ def run_training(model_type, params, test_size, random_state):
         cmd.extend(["--params", json.dumps(params)])
 
     try:
-        # Run the training script with arguments
-        result = subprocess.run(
+        # Use Popen with PIPE and communicate to avoid deadlock
+        process = subprocess.Popen(
             cmd,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
-            timeout=600  # 10 minute timeout for all models
+            bufsize=1  # Line buffered
         )
+        
+        # Set timeout and get output
+        try:
+            stdout, _ = process.communicate(timeout=600)  # 10 minute timeout
+            returncode = process.returncode
+        except subprocess.TimeoutExpired:
+            process.kill()
+            stdout, _ = process.communicate()
+            return {"success": False, "error": "Training timed out after 10 minutes"}
 
-        if result.returncode == 0:
+        if returncode == 0:
             return {
                 "success": True,
-                "stdout": result.stdout,
-                "stderr": result.stderr
+                "stdout": stdout,
+                "stderr": ""
             }
         else:
             return {
                 "success": False,
-                "error": result.stderr or result.stdout
+                "error": stdout
             }
-    except subprocess.TimeoutExpired:
-        return {"success": False, "error": "Training timed out after 10 minutes"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
