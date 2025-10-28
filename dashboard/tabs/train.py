@@ -67,67 +67,72 @@ def get_dataset_info():
 
 def run_training(model_type, params, test_size, random_state):
     """
-    Run model training by directly importing and calling the training script
-    
+    Run model training using subprocess with timeout
+
     Args:
         model_type: Type of model to train ('rf', 'xgb', 'nn', 'all')
         params: Dictionary of model parameters
         test_size: Test set size (0.0 to 1.0)
         random_state: Random seed for reproducibility
-    
+
     Returns:
         Training results or error message
     """
-    import io
-    from contextlib import redirect_stdout, redirect_stderr
-    
     try:
-        # Import the training script
+        # Prepare training script path
         script_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "scripts"
+            "scripts",
+            "train_model_advanced.py"
         )
-        sys.path.insert(0, script_path)
-        
-        # Import training function
-        from train_model_advanced import main as train_main
-        
-        # Capture stdout and stderr
-        stdout_capture = io.StringIO()
-        stderr_capture = io.StringIO()
-        
-        # Run training with output capture
-        with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-            try:
-                train_main(
-                    model_type=model_type,
-                    test_size=test_size,
-                    random_state=random_state,
-                    params=params
-                )
-                success = True
-            except Exception as e:
-                success = False
-                stderr_capture.write(f"Training error: {str(e)}\n")
-        
-        # Get captured output
-        stdout_text = stdout_capture.getvalue()
-        stderr_text = stderr_capture.getvalue()
-        
-        if success:
-            return {
-                "success": True,
-                "stdout": stdout_text,
-                "stderr": stderr_text
-            }
-        else:
+
+        # Build command
+        cmd = [
+            sys.executable, script_path,
+            "--model-type", model_type,
+            "--test-size", str(test_size),
+            "--random-state", str(random_state)
+        ]
+
+        # Add model-specific parameters
+        if params:
+            for key, value in params.items():
+                cmd.extend([f"--{key}", str(value)])
+
+        # Run subprocess with timeout (30 minutes = 1800 seconds)
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1  # Line buffered
+        )
+
+        # Wait for completion with timeout
+        try:
+            stdout, _ = process.communicate(timeout=1800)  # 30 minute timeout
+            returncode = process.returncode
+
+            if returncode == 0:
+                return {
+                    "success": True,
+                    "stdout": stdout,
+                    "stderr": ""
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Training script exited with code {returncode}\n\n{stdout}"
+                }
+
+        except subprocess.TimeoutExpired:
+            process.kill()
+            stdout, _ = process.communicate()
             return {
                 "success": False,
-                "error": stderr_text or stdout_text or "Unknown error occurred"
+                "error": f"Training timed out after 30 minutes. On Streamlit Cloud free tier, training can take significantly longer than locally. Consider training individual models instead of 'All Models'.\n\nPartial output:\n{stdout[:1000]}"
             }
-            
-    except ImportError as e:
-        return {"success": False, "error": f"Failed to import training script: {str(e)}"}
+
     except Exception as e:
         return {"success": False, "error": f"Unexpected error: {str(e)}"}
 
@@ -284,14 +289,20 @@ python scripts/merge_dataset_advanced.py
     
     # Training execution
     st.subheader("🚀 Training Execution")
-    
+
     # Display warning about training time
     if model_type == "All Models":
-        st.info("⏱️ Training all models typically takes 5-8 minutes.")
+        st.warning("⚠️ **Streamlit Cloud Performance Warning**\n\n"
+                   "Training all models on Streamlit Cloud free tier may take **30+ minutes** due to CPU limitations "
+                   "(vs 5-8 minutes locally). The training will timeout after 30 minutes.\n\n"
+                   "**Recommendations:**\n"
+                   "- Train models **individually** instead (2-15 minutes each)\n"
+                   "- Or train locally and deploy pre-trained models")
+        st.info("⏱️ Expected time: 5-8 minutes locally, 30+ minutes on Streamlit Cloud free tier")
     elif model_type == "Neural Network":
-        st.info("⏱️ Neural Network training typically takes 2-5 minutes depending on parameters.")
+        st.info("⏱️ Neural Network training typically takes 2-5 minutes locally, 10-20 minutes on Streamlit Cloud free tier")
     else:
-        st.info("⏱️ Training typically takes 1-2 minutes.")
+        st.info("⏱️ Training typically takes 1-2 minutes locally, 5-15 minutes on Streamlit Cloud free tier")
     
     # Training button
     if st.button("🏃 Start Training", type="primary", use_container_width=True):

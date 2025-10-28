@@ -538,12 +538,28 @@ brew install font-noto-sans-cjk-jp
 
 ### 起動方法
 
+**ローカル環境（推奨）:**
 ```bash
 source .venv/bin/activate
 streamlit run dashboard/app.py
 ```
 
 ブラウザで `http://localhost:8501` にアクセスしてください。
+
+**Streamlit Cloud:**
+
+このダッシュボードはStreamlit Cloudにデプロイ可能ですが、以下の制約があります：
+
+⚠️ **重要: Streamlit Cloud Free Tierの制約**
+
+- **CPUリソースが限定的**: トレーニングに非常に時間がかかります
+  - ローカル環境: 5-8分
+  - Streamlit Cloud: 30分以上（タイムアウトのリスクあり）
+
+- **推奨事項**:
+  1. **ローカルでトレーニング**: ローカル環境でモデルを訓練し、pre-trained modelsをデプロイ
+  2. **個別モデルを訓練**: "All Models"ではなく、1つずつモデルを訓練（2-15分/モデル）
+  3. **予測とEvaluation用途**: Streamlit Cloudは予測とモデル評価に使用
 
 ### 機能
 
