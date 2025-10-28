@@ -1,0 +1,153 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+.virtualenv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Machine Learning / Data Files
+# Data directories (large audio files and CSVs)
+data/cries/
+data/*.csv
+
+# Models (can be large)
+models/*.joblib
+models/*.keras
+models/*.h5
+models/*.pkl
+models/*.pt
+models/*.pth
+models/*.onnx
+
+# Results
+results/*.json
+results/*.png
+results/*.jpg
+results/*.pdf
+
+# Logs
+*.log
+logs/
+streamlit.log
+.streamlit/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+
+# MCP/Agent files (if sensitive)
+.agent/*.md
+!.agent/PLANS.md
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Compiled translations
+*.mo
+*.pot
+
+# Documentation builds
+docs/_build/
+docs/_static/
+docs/_templates/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Playwright
+.playwright-mcp/
+*.png
+
+# TensorFlow/Keras
+*.pb
+checkpoint
+saved_model/
+
+# Weights & Biases
+wandb/
+
+# MLflow
+mlruns/
+
+# Ignore large datasets but keep structure
+# You can selectively un-ignore specific files with !filename pattern
