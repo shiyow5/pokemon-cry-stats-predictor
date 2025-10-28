@@ -66,7 +66,10 @@ results/*.pdf
 *.log
 logs/
 streamlit.log
-.streamlit/
+
+# Streamlit (keep config.toml but ignore secrets)
+.streamlit/secrets.toml
+.streamlit/*_cache/
 
 # Testing
 .pytest_cache/
