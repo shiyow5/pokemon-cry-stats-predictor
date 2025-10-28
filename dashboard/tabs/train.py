@@ -67,10 +67,10 @@ def get_dataset_info():
 
 def run_training(model_type, params, test_size, random_state):
     """
-    Run model training
+    Run model training by directly importing and calling the training script
     
     Args:
-        model_type: Type of model to train ('rf', 'xgb', 'nn')
+        model_type: Type of model to train ('rf', 'xgb', 'nn', 'all')
         params: Dictionary of model parameters
         test_size: Test set size (0.0 to 1.0)
         random_state: Random seed for reproducibility
@@ -78,59 +78,58 @@ def run_training(model_type, params, test_size, random_state):
     Returns:
         Training results or error message
     """
-    # Prepare training script path
-    script_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        "scripts/train_model_advanced.py"
-    )
+    import io
+    from contextlib import redirect_stdout, redirect_stderr
     
-    if not os.path.exists(script_path):
-        return {"error": "Training script not found. Please ensure train_model_advanced.py exists."}
-    
-    # Build command line arguments
-    cmd = [
-        sys.executable, script_path,
-        "--model-type", model_type,
-        "--test-size", str(test_size),
-        "--random-state", str(random_state)
-    ]
-
-    # Add params as JSON if provided
-    if params:
-        cmd.extend(["--params", json.dumps(params)])
-
     try:
-        # Use Popen with PIPE and communicate to avoid deadlock
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1  # Line buffered
+        # Import the training script
+        script_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            "scripts"
         )
+        sys.path.insert(0, script_path)
         
-        # Set timeout and get output
-        try:
-            stdout, _ = process.communicate(timeout=600)  # 10 minute timeout
-            returncode = process.returncode
-        except subprocess.TimeoutExpired:
-            process.kill()
-            stdout, _ = process.communicate()
-            return {"success": False, "error": "Training timed out after 10 minutes"}
-
-        if returncode == 0:
+        # Import training function
+        from train_model_advanced import main as train_main
+        
+        # Capture stdout and stderr
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+        
+        # Run training with output capture
+        with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+            try:
+                train_main(
+                    model_type=model_type,
+                    test_size=test_size,
+                    random_state=random_state,
+                    params=params
+                )
+                success = True
+            except Exception as e:
+                success = False
+                stderr_capture.write(f"Training error: {str(e)}\n")
+        
+        # Get captured output
+        stdout_text = stdout_capture.getvalue()
+        stderr_text = stderr_capture.getvalue()
+        
+        if success:
             return {
                 "success": True,
-                "stdout": stdout,
-                "stderr": ""
+                "stdout": stdout_text,
+                "stderr": stderr_text
             }
         else:
             return {
                 "success": False,
-                "error": stdout
+                "error": stderr_text or stdout_text or "Unknown error occurred"
             }
+            
+    except ImportError as e:
+        return {"success": False, "error": f"Failed to import training script: {str(e)}"}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": f"Unexpected error: {str(e)}"}
 
 
 def render():
