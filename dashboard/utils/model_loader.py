@@ -8,18 +8,21 @@ import os
 def load_latest_results():
     """
     Load the latest model comparison results from JSON file.
-    
+
     Returns:
         Dictionary with model comparison results, or None if not found
     """
-    result_files = sorted(glob.glob('results/model_comparison_*.json'))
-    
+    result_files = glob.glob('results/model_comparison_*.json')
+
     if not result_files:
         return None
-    
-    with open(result_files[-1], 'r') as f:
+
+    # Sort by modification time (newest first) instead of filename
+    latest_file = max(result_files, key=os.path.getmtime)
+
+    with open(latest_file, 'r') as f:
         results = json.load(f)
-    
+
     return results
 
 
