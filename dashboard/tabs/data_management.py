@@ -241,30 +241,61 @@ def add_pokemon(identifier: str) -> Tuple[bool, str]:
         Tuple of (success: bool, message: str)
     """
     try:
-        # Fetch Pokemon data from API
-        pokemon_data = fetch_pokemon_from_api(identifier)
-        
-        if not pokemon_data:
-            return False, f"Could not find Pokémon '{identifier}' in PokeAPI."
-        
-        pokemon_name = pokemon_data['name']
-        
         # Paths to data files
         base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         stats_path = os.path.join(base_path, "data/raw_stats.csv")
         features_path = os.path.join(base_path, "data/audio_features_advanced.csv")
         audio_dir = os.path.join(base_path, "data/cries")
-        audio_path = os.path.join(audio_dir, f"{pokemon_name}.ogg")
-        
+
         # Load existing data
         stats_df = pd.read_csv(stats_path)
-        
-        # Check if Pokemon already exists
-        if pokemon_name in stats_df['name'].values:
+
+        if os.path.exists(features_path):
+            features_df = pd.read_csv(features_path)
+        else:
+            features_df = pd.DataFrame()
+
+        # Fetch Pokemon data from API (fallback to local stats if unavailable)
+        pokemon_data = fetch_pokemon_from_api(identifier)
+
+        if not pokemon_data:
+            identifier_str = str(identifier).strip().lower()
+            if identifier_str.isdigit():
+                lookup = stats_df[stats_df['species_id'] == int(identifier_str)]
+            else:
+                lookup = stats_df[stats_df['name'] == identifier_str]
+
+            if not lookup.empty:
+                row = lookup.iloc[0]
+                pokemon_data = {
+                    'name': row['name'],
+                    'species_id': int(row['species_id']),
+                    'hp': row['hp'],
+                    'attack': row['attack'],
+                    'defense': row['defense'],
+                    'speed': row['speed'],
+                    'sp_attack': row['sp_attack'],
+                    'sp_defense': row['sp_defense'],
+                    'cry_url': None,
+                }
+            else:
+                return False, f"Could not find Pokémon '{identifier}' in PokeAPI."
+
+        pokemon_name = pokemon_data['name']
+        audio_path = os.path.join(audio_dir, f"{pokemon_name}.ogg")
+
+        pokemon_exists = pokemon_name in stats_df['name'].values
+        features_exists = (
+            not features_df.empty
+            and 'name' in features_df.columns
+            and pokemon_name in features_df['name'].values
+        )
+
+        if pokemon_exists and features_exists:
             return False, f"Pokémon '{pokemon_name}' already exists in the dataset."
-        
-        # Download cry audio if available
-        audio_downloaded = False
+
+        # Download cry audio if available, or reuse existing file
+        audio_available = os.path.exists(audio_path)
         if pokemon_data['cry_url']:
             try:
                 audio_response = requests.get(pokemon_data['cry_url'], timeout=10)
@@ -272,52 +303,58 @@ def add_pokemon(identifier: str) -> Tuple[bool, str]:
                     os.makedirs(audio_dir, exist_ok=True)
                     with open(audio_path, 'wb') as f:
                         f.write(audio_response.content)
-                    audio_downloaded = True
-            except Exception as e:
+                    audio_available = True
+            except Exception:
                 pass  # Continue even if audio download fails
-        
-        # Add to raw_stats.csv
-        new_stats_row = pd.DataFrame([{
-            'name': pokemon_name,
-            'species_id': pokemon_data['species_id'],
-            'hp': pokemon_data['hp'],
-            'attack': pokemon_data['attack'],
-            'defense': pokemon_data['defense'],
-            'speed': pokemon_data['speed'],
-            'sp_attack': pokemon_data['sp_attack'],
-            'sp_defense': pokemon_data['sp_defense']
-        }])
-        
-        stats_df = pd.concat([stats_df, new_stats_row], ignore_index=True)
-        stats_df = stats_df.sort_values('species_id').reset_index(drop=True)
-        stats_df.to_csv(stats_path, index=False)
-        
-        # For audio features, we would need to extract them
-        # For now, add a placeholder row with zeros or skip
-        message = f"✅ Successfully added '{pokemon_name.title()}' (#{pokemon_data['species_id']}) to raw_stats.csv."
-        
-        if audio_downloaded:
-            message += f" Audio file downloaded."
-            
-            # Extract audio features automatically
+
+        message_parts: List[str] = []
+
+        if not pokemon_exists:
+            new_stats_row = pd.DataFrame([{
+                'name': pokemon_name,
+                'species_id': pokemon_data['species_id'],
+                'hp': pokemon_data['hp'],
+                'attack': pokemon_data['attack'],
+                'defense': pokemon_data['defense'],
+                'speed': pokemon_data['speed'],
+                'sp_attack': pokemon_data['sp_attack'],
+                'sp_defense': pokemon_data['sp_defense']
+            }])
+
+            stats_df = pd.concat([stats_df, new_stats_row], ignore_index=True)
+            stats_df = stats_df.sort_values('species_id').reset_index(drop=True)
+            stats_df.to_csv(stats_path, index=False)
+            message_parts.append(
+                f"✅ Successfully added '{pokemon_name.title()}' (#{pokemon_data['species_id']}) to raw_stats.csv."
+            )
+        else:
+            message_parts.append(
+                f"ℹ️ Pokémon '{pokemon_name.title()}' already existed in stats; refreshing assets."
+            )
+
+        if audio_available:
             try:
                 features = extract_audio_features(audio_path)
                 features['name'] = pokemon_name
-                
-                # Load and update audio_features_advanced.csv
-                features_df = pd.read_csv(features_path)
+
+                required_columns = list(features.keys())
+                if features_df.empty:
+                    features_df = pd.DataFrame(columns=required_columns)
+                elif 'name' not in features_df.columns:
+                    features_df = pd.DataFrame(columns=required_columns)
+                else:
+                    features_df = features_df[features_df['name'] != pokemon_name]
                 new_features_row = pd.DataFrame([features])
                 features_df = pd.concat([features_df, new_features_row], ignore_index=True)
                 features_df.to_csv(features_path, index=False)
-                
-                message += " ✅ Audio features extracted automatically."
-            except Exception as e:
-                message += f" ⚠️ Audio features extraction failed: {str(e)}"
+                message_parts.append("✅ Audio features extracted automatically.")
+            except Exception as exc:
+                message_parts.append(f"⚠️ Audio features extraction failed: {str(exc)}")
         else:
-            message += " ⚠️ Audio file not available. Cannot extract features."
-        
-        return True, message
-        
+            message_parts.append("⚠️ Audio file not available. Cannot extract features.")
+
+        return True, " ".join(message_parts)
+
     except Exception as e:
         return False, f"Error adding Pokémon: {str(e)}"
 
