@@ -112,6 +112,79 @@ def load_best_model():
     return model, scaler, model_name
 
 
+def get_available_models_info():
+    """
+    Get information about available models with their performance metrics.
+    
+    Returns:
+        List of dictionaries with model information, sorted by R² score (best first)
+        Each dict contains: {
+            'key': model key from results,
+            'name': display name,
+            'type': model type (rf/nn),
+            'r2': overall R² score,
+            'available': whether model file exists
+        }
+    """
+    results = load_latest_results()
+    
+    if results is None:
+        return []
+    
+    models_info = []
+    
+    for model_key, model_data in results.items():
+        if 'overall_r2' in model_data:
+            model_name = model_data.get('model', 'Unknown')
+            r2_score = model_data['overall_r2']
+            
+            # Determine model type and file availability
+            if 'random_forest' in model_key.lower() or 'rf' in model_key.lower():
+                model_type = 'rf'
+                model_file = 'models/pokemon_stats_rf_advanced.joblib'
+            elif 'neural' in model_key.lower() or 'nn' in model_key.lower():
+                model_type = 'nn'
+                model_file = 'models/pokemon_stats_nn.keras'
+            else:
+                model_type = 'unknown'
+                model_file = None
+            
+            available = model_file is not None and os.path.exists(model_file)
+            
+            models_info.append({
+                'key': model_key,
+                'name': model_name,
+                'type': model_type,
+                'r2': r2_score,
+                'available': available
+            })
+    
+    # Sort by R² score (descending)
+    models_info.sort(key=lambda x: x['r2'], reverse=True)
+    
+    return models_info
+
+
+def load_model_by_type(model_type):
+    """
+    Load a model by its type.
+    
+    Args:
+        model_type: 'rf' for Random Forest, 'nn' for Neural Network
+    
+    Returns:
+        Tuple of (model, scaler, model_name) or (None, None, None) if not found
+    """
+    if model_type == 'rf':
+        model, scaler = load_random_forest_model()
+        return model, scaler, "Random Forest"
+    elif model_type == 'nn':
+        model, scaler = load_neural_network_model()
+        return model, scaler, "Neural Network"
+    else:
+        return None, None, None
+
+
 def load_model_by_name(model_name):
     """
     Load a specific model by name.

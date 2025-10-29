@@ -7,7 +7,7 @@ import numpy as np
 import requests
 from io import BytesIO
 from dashboard.utils.audio_processor import extract_features_from_audio
-from dashboard.utils.model_loader import load_best_model
+from dashboard.utils.model_loader import load_best_model, get_available_models_info, load_model_by_type
 from dashboard.utils.similarity import find_similar_pokemon, get_pokemon_stats
 
 # Import audio recorder
@@ -125,11 +125,61 @@ Please visit the **📁 Data Management** tab to initialize the dataset before u
         st.info("💡 Go to **📁 Data Management** → Click '🚀 Initialize Dataset Now'")
         return
     
-    # Load best model once
-    if "model" not in st.session_state or "scaler" not in st.session_state:
-        with st.spinner("Loading best model..."):
+    # Model selection section
+    st.subheader("🤖 Model Selection")
+    
+    # Get available models
+    models_info = get_available_models_info()
+    
+    if not models_info:
+        st.warning("No trained models found. Please train models first.")
+        return
+    
+    # Filter only available models
+    available_models = [m for m in models_info if m['available']]
+    
+    if not available_models:
+        st.error("No model files found. Please train models first.")
+        return
+    
+    # Create model selection options
+    model_options = {}
+    for model_info in available_models:
+        label = f"{model_info['name']} (R² = {model_info['r2']:.3f})"
+        if model_info == available_models[0]:
+            label += " 🏆"  # Best model indicator
+        model_options[label] = model_info['type']
+    
+    # Get default selection (best model)
+    default_label = list(model_options.keys())[0]
+    
+    # Initialize selected model in session state if not exists
+    if "selected_model_type" not in st.session_state:
+        st.session_state["selected_model_type"] = model_options[default_label]
+        st.session_state["selected_model_label"] = default_label
+    
+    # Model selection radio buttons
+    selected_label = st.radio(
+        "Select a model for prediction:",
+        options=list(model_options.keys()),
+        index=list(model_options.keys()).index(st.session_state.get("selected_model_label", default_label)),
+        help="The best model (highest R² score) is selected by default. You can choose a different model if desired."
+    )
+    
+    selected_type = model_options[selected_label]
+    
+    # Check if model selection changed
+    model_changed = (selected_type != st.session_state.get("selected_model_type"))
+    
+    # Update session state
+    st.session_state["selected_model_type"] = selected_type
+    st.session_state["selected_model_label"] = selected_label
+    
+    # Load model if not loaded or if selection changed
+    if "model" not in st.session_state or "scaler" not in st.session_state or model_changed:
+        with st.spinner(f"Loading {selected_label.split(' (')[0]} model..."):
             try:
-                model, scaler, model_name = load_best_model()
+                model, scaler, model_name = load_model_by_type(selected_type)
                 if model is None or scaler is None:
                     st.error("Failed to load model: Model files not found")
                     st.info("Please ensure the model has been trained first.")
@@ -146,9 +196,7 @@ Please visit the **📁 Data Management** tab to initialize the dataset before u
     model = st.session_state["model"]
     scaler = st.session_state["scaler"]
     model_name = st.session_state.get("model_name", "Neural Network")
-
-    # Display currently loaded model
-    st.info(f"📌 **Currently loaded model:** {model_name}")
+    
     st.divider()
 
     # Create two columns for input methods
