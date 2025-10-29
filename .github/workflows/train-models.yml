@@ -76,8 +76,12 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
-          # Add model files and results
-          git add models/*.joblib models/*.keras models/scaler*.joblib results/*.json 2>/dev/null || true
+          # Add model files (new and modified only)
+          git add models/*.joblib models/*.keras models/scaler*.joblib 2>/dev/null || true
+
+          # Add results with ALL changes (additions, modifications, AND deletions)
+          # This ensures cleanup_old_results() deletions are committed
+          git add -A results/ 2>/dev/null || true
 
           # Check if there are changes to commit
           if git diff --staged --quiet; then
