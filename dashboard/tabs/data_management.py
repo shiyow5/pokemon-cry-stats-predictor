@@ -16,6 +16,9 @@ from typing import Optional, Dict, Tuple, List
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
+MAX_POKEDEX_ID = 1025
+
+
 @st.cache_data(ttl=60)  # Cache for 60 seconds
 def load_pokemon_data() -> pd.DataFrame:
     """
@@ -57,6 +60,34 @@ def load_pokemon_data() -> pd.DataFrame:
     except Exception as e:
         st.error(f"Error loading Pokémon data: {str(e)}")
         return pd.DataFrame(columns=['name', 'species_id', 'hp', 'attack', 'defense', 'speed', 'sp_attack', 'sp_defense'])
+
+
+def get_existing_species_ids() -> List[int]:
+    """Return sorted Pokédex IDs that already exist in the training dataset."""
+    base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    stats_path = os.path.join(base_path, "data/raw_stats.csv")
+    features_path = os.path.join(base_path, "data/audio_features_advanced.csv")
+
+    try:
+        stats_df = pd.read_csv(stats_path)
+    except FileNotFoundError:
+        return []
+
+    if stats_df.empty:
+        return []
+
+    try:
+        features_df = pd.read_csv(features_path)
+    except FileNotFoundError:
+        features_df = pd.DataFrame()
+
+    if not features_df.empty and 'name' in features_df.columns:
+        stats_df = stats_df[stats_df['name'].isin(features_df['name'])]
+
+    if stats_df.empty:
+        return []
+
+    return sorted(stats_df['species_id'].astype(int).tolist())
 
 
 @st.cache_data(ttl=3600)  # Cache for 1 hour (images don't change)
@@ -437,48 +468,38 @@ def display_pokemon_card(pokemon_data: pd.Series, col) -> None:
 def bulk_add_pokemon(count: int, mode: str = "sequential") -> Tuple[int, List[str]]:
     """
     Add multiple Pokémon to the dataset automatically.
-    
+
     Args:
         count: Number of Pokémon to add
         mode: "sequential" (by Pokédex number) or "random"
-    
+
     Returns:
         Tuple of (successful_count, list of error messages)
     """
     try:
-        # Load existing data to find what's already in dataset
-        base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        stats_path = os.path.join(base_path, "data/raw_stats.csv")
-        stats_df = pd.read_csv(stats_path)
-        existing_ids = set(stats_df['species_id'].values)
-        
-        # PokeAPI has approximately 1025 Pokémon (as of Generation 9)
-        # We'll try IDs from 1 to 1025
-        max_pokemon_id = 1025
-        available_ids = [i for i in range(1, max_pokemon_id + 1) if i not in existing_ids]
-        
+        existing_ids = set(get_existing_species_ids())
+        available_ids = [i for i in range(1, MAX_POKEDEX_ID + 1) if i not in existing_ids]
+
         if not available_ids:
             return 0, ["No new Pokémon available to add."]
-        
-        # Select IDs based on mode
+
         if mode == "random":
             selected_ids = random.sample(available_ids, min(count, len(available_ids)))
         else:  # sequential
             selected_ids = available_ids[:min(count, len(available_ids))]
-        
-        # Add each Pokémon
+
         success_count = 0
         errors = []
-        
+
         for pokemon_id in selected_ids:
             success, message = add_pokemon(str(pokemon_id))
             if success:
                 success_count += 1
             else:
                 errors.append(f"ID {pokemon_id}: {message}")
-        
+
         return success_count, errors
-        
+
     except Exception as e:
         return 0, [f"Error in bulk add: {str(e)}"]
 
@@ -793,20 +814,13 @@ This process may take 5-10 minutes depending on the number of Pokémon.
         st.divider()
         st.write("**Preview:**")
 
-        # Calculate preview IDs
-        base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        stats_path = os.path.join(base_path, "data/raw_stats.csv")
-
         try:
-            stats_df = pd.read_csv(stats_path)
-            existing_ids = set(stats_df['species_id'].values)
-            max_pokemon_id = 1025
-            available_ids = sorted([i for i in range(1, max_pokemon_id + 1) if i not in existing_ids])
+            existing_ids = get_existing_species_ids()
+            available_ids = [i for i in range(1, MAX_POKEDEX_ID + 1) if i not in existing_ids]
 
             if not available_ids:
                 st.warning("⚠️ No new Pokémon available to add!")
             else:
-                # Preview IDs based on current selection
                 if bulk_mode == "random":
                     preview_text = f"Will add {min(bulk_count, len(available_ids))} random Pokémon from {len(available_ids)} available"
                 else:  # sequential
@@ -817,7 +831,10 @@ This process may take 5-10 minutes depending on the number of Pokémon.
                         preview_text = f"Will add: #{preview_ids[0]} - #{preview_ids[-1]} ({len(preview_ids)} Pokémon)"
 
                 st.info(f"📋 {preview_text}")
-                st.caption(f"Current dataset: {len(existing_ids)} Pokémon | Available: {len(available_ids)} Pokémon")
+
+            st.caption(
+                f"Current dataset: {len(existing_ids)} Pokémon | Available: {len(available_ids)} Pokémon"
+            )
         except Exception as e:
             st.error(f"Error calculating preview: {str(e)}")
 
@@ -828,16 +845,9 @@ This process may take 5-10 minutes depending on the number of Pokémon.
 
             # Use a simpler approach: call bulk add and show results
             with st.spinner(f"Adding {bulk_count} Pokémon in {bulk_mode} mode..."):
-                # Get available IDs
-                base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-                stats_path = os.path.join(base_path, "data/raw_stats.csv")
-                stats_df = pd.read_csv(stats_path)
-                existing_ids = set(stats_df['species_id'].values)
+                existing_ids = get_existing_species_ids()
+                available_ids = [i for i in range(1, MAX_POKEDEX_ID + 1) if i not in existing_ids]
 
-                # Support all Pokemon generations (ID 1-1025)
-                max_pokemon_id = 1025
-                available_ids = sorted([i for i in range(1, max_pokemon_id + 1) if i not in existing_ids])
-                
                 if not available_ids:
                     st.error("❌ No new Pokémon available to add!")
                 else:
@@ -845,8 +855,8 @@ This process may take 5-10 minutes depending on the number of Pokémon.
                     if bulk_mode == "random":
                         selected_ids = random.sample(available_ids, min(bulk_count, len(available_ids)))
                     else:  # sequential
-                        selected_ids = sorted(available_ids[:min(bulk_count, len(available_ids))])
-                    
+                        selected_ids = available_ids[:min(bulk_count, len(available_ids))]
+
                     # Add each Pokémon with progress tracking
                     success_count = 0
                     errors = []
@@ -870,10 +880,11 @@ This process may take 5-10 minutes depending on the number of Pokémon.
                     # Show results
                     if success_count > 0:
                         # Show ID range of successfully added Pokemon
-                        if len(successfully_added_ids) <= 10:
-                            ids_display = f"#{', #'.join(map(str, successfully_added_ids))}"
+                        display_ids = sorted(successfully_added_ids)
+                        if len(display_ids) <= 10:
+                            ids_display = f"#{', #'.join(map(str, display_ids))}"
                         else:
-                            ids_display = f"#{successfully_added_ids[0]} - #{successfully_added_ids[-1]}"
+                            ids_display = f"#{display_ids[0]} - #{display_ids[-1]}"
                         st.success(f"✅ Successfully added {success_count} Pokémon to the dataset!\n\n**Added IDs:** {ids_display}")
 
                     if errors:
@@ -891,7 +902,10 @@ This process may take 5-10 minutes depending on the number of Pokémon.
                         st.rerun()
     
     # Bulk delete / reset section
-    with st.expander("⚠️ Danger Zone - Reset Dataset"):
+    if 'danger_zone_expanded' not in st.session_state:
+        st.session_state.danger_zone_expanded = False
+
+    with st.expander("⚠️ Danger Zone - Reset Dataset", expanded=st.session_state.danger_zone_expanded):
         st.warning("**Warning**: This will delete ALL Pokémon from the training dataset!")
         st.write("""
         This action will:
@@ -910,7 +924,9 @@ This process may take 5-10 minutes depending on the number of Pokémon.
                 key="reset_confirm_text",
                 placeholder="DELETE ALL"
             )
-        
+            if confirm_text:
+                st.session_state.danger_zone_expanded = True
+
         with col2:
             st.write("")  # Spacing
             st.write("")  # Spacing
@@ -922,6 +938,7 @@ This process may take 5-10 minutes depending on the number of Pokémon.
             )
         
         if reset_button and confirm_text == "DELETE ALL":
+            st.session_state.danger_zone_expanded = True
             with st.spinner("Resetting dataset..."):
                 success, message = reset_dataset()
                 if success:
