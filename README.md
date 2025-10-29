@@ -647,7 +647,12 @@ Streamlit Cloud Free Tierの制約を回避するため、GitHub Actionsを使�
   - ☁️ **Direct Training**: Streamlit Cloud上で直接訓練（30分以上、タイムアウトリスク）
 - **モデル選択**: Neural Network、Random Forest、XGBoost、All Models
 - **パラメータ設定**: Test size、Random seed、モデル固有のハイパーパラメータ
-- **進捗確認**: GitHub Actionsの場合はワークフローページへのリンクを表示
+- **リアルタイム進捗監視** (GitHub Actions):
+  - ワークフローの状態を自動的に監視（⏳ Queued → 🔄 In Progress → ✅ Completed）
+  - 10秒ごとに自動更新
+  - GitHub ActionsのUIへの直接リンク
+  - 完了時に成功/失敗/キャンセルを表示
+  - トレーニング完了後にModel Evaluationタブで結果確認を促す
 - **結果表示**: トレーニングログと警告の表示
 
 **推奨設定:**
@@ -657,7 +662,50 @@ Streamlit Cloud Free Tierの制約を回避するため、GitHub Actionsを使�
 - Random seed = 42（再現性のため）
 
 #### 🔮 Prediction Tab
-新しい音声ファイルからステータスを予測します（実装予定）。
+新しい音声ファイルからステータスを予測します。
+
+**主な機能:**
+- **モデル選択**: 訓練済みモデルから選択可能
+  - 最良のモデルがデフォルトで選択されます（R²スコアに基づく）
+  - 各モデルのR²スコアを表示して比較可能
+  - ラジオボタンで簡単に切り替え
+- **音声入力**: 
+  - ファイルアップロード（OGG, WAV, MP3対応）
+  - マイクから直接録音（audio-recorder-streamlitが必要）
+- **予測結果表示**: 6つのステータス（HP、ATTACK、DEFENSE、SPEED、SP_ATTACK、SP_DEFENSE）
+- **類似ポケモン表示**: 音響特徴量に基づく最も類似したポケモンTOP 3
+  - ポケモンの画像表示（PokeAPI）
+  - 実際のステータスとの比較
+  - Euclidean距離による類似度
+
+**モデル選択機能:**
+- 🏆 最良のモデルにトロフィーアイコン表示
+- R²スコアをリアルタイムで表示
+- モデル変更時に自動的に再ロード
+- ユーザーフレンドリーなUI
+
+### 最近の更新 (2025-10-29)
+
+今回の更新で以下の機能が追加されました：
+
+**📊 GitHub Actions進捗監視（Train Tab）:**
+- トレーニングの進捗をStreamlit内でリアルタイム表示
+- 10秒ごとに自動更新（⏳ Queued → 🔄 In Progress → ✅ Completed）
+- GitHub Actionsへの直接リンク
+- 完了時に成功/失敗を明確に表示
+- 「Stop Monitoring」ボタンで監視を停止可能
+
+**🤖 最良モデル自動選択（Predict Tab）:**
+- Model Evaluationの結果に基づいて最良のモデルを自動選択
+- デフォルトで最高R²スコアのモデルをロード
+- ユーザーがモデルを選択可能なUI
+- 各モデルのR²スコアをリアルタイム表示
+- 🏆 トロフィーアイコンで最良モデルを明示
+
+**🔧 技術的改善:**
+- GitHub Actionsワークフローに`contents: write`権限を追加（403エラー解消）
+- インポートパスの修正（Streamlit Cloud対応）
+- モデル選択時の自動リロード機能
 
 ### ダッシュボードのトラブルシューティング
 
