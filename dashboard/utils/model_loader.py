@@ -17,8 +17,17 @@ def load_latest_results():
     if not result_files:
         return None
 
-    # Sort by modification time (newest first) instead of filename
-    latest_file = max(result_files, key=os.path.getmtime)
+    # Sort by (mtime, filename) tuple to handle both local and Streamlit Cloud scenarios
+    # - On local: mtime reflects actual modification time
+    # - On Streamlit Cloud: files from same commit have same mtime, so filename is tiebreaker
+    def sort_key(filepath):
+        mtime = os.path.getmtime(filepath)
+        basename = os.path.basename(filepath)
+        # Extract YYYYMMDD_HHMMSS from filename as tiebreaker
+        timestamp_str = basename.replace('model_comparison_', '').replace('.json', '')
+        return (mtime, timestamp_str)
+
+    latest_file = max(result_files, key=sort_key)
 
     with open(latest_file, 'r') as f:
         results = json.load(f)
