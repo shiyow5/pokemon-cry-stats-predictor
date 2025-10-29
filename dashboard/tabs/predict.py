@@ -6,15 +6,9 @@ import streamlit as st
 import numpy as np
 import requests
 from io import BytesIO
-import sys
-import os
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from utils.audio_processor import extract_features_from_audio
-from utils.model_loader import load_best_model
-from utils.similarity import find_similar_pokemon, get_pokemon_stats
+from dashboard.utils.audio_processor import extract_features_from_audio
+from dashboard.utils.model_loader import load_best_model
+from dashboard.utils.similarity import find_similar_pokemon, get_pokemon_stats
 
 # Import audio recorder
 try:
