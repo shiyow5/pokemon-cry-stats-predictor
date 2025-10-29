@@ -13,7 +13,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.audio_processor import extract_features_from_audio
-from utils.model_loader import load_neural_network_model
+from utils.model_loader import load_best_model
 from utils.similarity import find_similar_pokemon, get_pokemon_stats
 
 # Import audio recorder
@@ -131,15 +131,19 @@ Please visit the **📁 Data Management** tab to initialize the dataset before u
         st.info("💡 Go to **📁 Data Management** → Click '🚀 Initialize Dataset Now'")
         return
     
-    # Load model once
+    # Load best model once
     if "model" not in st.session_state or "scaler" not in st.session_state:
-        with st.spinner("Loading model..."):
+        with st.spinner("Loading best model..."):
             try:
-                model, scaler = load_neural_network_model()
+                model, scaler, model_name = load_best_model()
+                if model is None or scaler is None:
+                    st.error("Failed to load model: Model files not found")
+                    st.info("Please ensure the model has been trained first.")
+                    return
                 st.session_state["model"] = model
                 st.session_state["scaler"] = scaler
-                st.session_state["model_name"] = "Neural Network"
-                st.success("✅ Neural Network model loaded successfully!")
+                st.session_state["model_name"] = model_name
+                st.success(f"✅ {model_name} model loaded successfully!")
             except Exception as e:
                 st.error(f"Failed to load model: {str(e)}")
                 st.info("Please ensure the model has been trained first.")
