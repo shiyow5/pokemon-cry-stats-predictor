@@ -753,11 +753,15 @@ This process may take 5-10 minutes depending on the number of Pokémon.
                     st.error(message)
     
     # Bulk add Pokemon section
-    with st.expander("Add Multiple Pokémon Automatically"):
+    # Initialize expander state in session
+    if 'bulk_add_expanded' not in st.session_state:
+        st.session_state.bulk_add_expanded = False
+
+    with st.expander("Add Multiple Pokémon Automatically", expanded=st.session_state.bulk_add_expanded):
         st.write("Automatically add multiple Pokémon to the training dataset.")
-        
+
         col1, col2, col3 = st.columns([2, 2, 1])
-        
+
         with col1:
             bulk_count = st.slider(
                 "Number of Pokémon to Add",
@@ -765,26 +769,31 @@ This process may take 5-10 minutes depending on the number of Pokémon.
                 max_value=100,
                 value=10,
                 step=1,
-                help="Slide to select how many Pokémon you want to add automatically"
+                key="bulk_count_slider",
+                help="Slide to select how many Pokémon you want to add automatically",
+                on_change=lambda: setattr(st.session_state, 'bulk_add_expanded', True)
             )
-        
+
         with col2:
             bulk_mode = st.radio(
                 "Selection Mode",
                 options=["sequential", "random"],
+                key="bulk_mode_radio",
                 format_func=lambda x: "📋 Sequential (by Pokédex #)" if x == "sequential" else "🎲 Random",
-                help="Sequential: Add Pokémon in order by Pokédex number. Random: Add randomly selected Pokémon."
+                help="Sequential: Add Pokémon in order by Pokédex number. Random: Add randomly selected Pokémon.",
+                on_change=lambda: setattr(st.session_state, 'bulk_add_expanded', True)
             )
-        
+
         with col3:
             st.write("")  # Spacing
             st.write("")  # Spacing
-            bulk_add_button = st.button("🚀 Bulk Add", type="primary", width='stretch')
-        
+            bulk_add_button = st.button("🚀 Bulk Add", type="primary", key="bulk_add_button")
+
         if bulk_add_button:
+            st.session_state.bulk_add_expanded = True
             progress_bar = st.progress(0)
             status_text = st.empty()
-            
+
             # Use a simpler approach: call bulk add and show results
             with st.spinner(f"Adding {bulk_count} Pokémon in {bulk_mode} mode..."):
                 # Get available IDs
@@ -792,8 +801,10 @@ This process may take 5-10 minutes depending on the number of Pokémon.
                 stats_path = os.path.join(base_path, "data/raw_stats.csv")
                 stats_df = pd.read_csv(stats_path)
                 existing_ids = set(stats_df['species_id'].values)
-                
-                max_pokemon_id = 1025
+
+                # Limit to Generation 1-8 (ID 1-898) for better compatibility
+                # Generation 9+ has different data structure in some APIs
+                max_pokemon_id = 898
                 available_ids = sorted([i for i in range(1, max_pokemon_id + 1) if i not in existing_ids])
                 
                 if not available_ids:
