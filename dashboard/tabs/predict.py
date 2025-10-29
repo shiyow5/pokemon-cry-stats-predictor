@@ -261,10 +261,18 @@ Please visit the **📁 Data Management** tab to initialize the dataset before u
                     
                     # Scale features
                     features_scaled = scaler.transform(features)
-                    
+
                     # Make predictions
-                    predictions_array = model.predict(features_scaled, verbose=0)[0]
-                    predictions = dict(zip(TARGET_STATS, predictions_array))
+                    if isinstance(model, dict):
+                        # XGBoost: model is a dictionary with one model per stat
+                        predictions = {}
+                        for stat in TARGET_STATS:
+                            pred = model[stat].predict(features_scaled)[0]
+                            predictions[stat] = float(pred)
+                    else:
+                        # Neural Network or Random Forest: single model for all stats
+                        predictions_array = model.predict(features_scaled, verbose=0)[0]
+                        predictions = dict(zip(TARGET_STATS, predictions_array))
                     
                     # Find similar Pokémon
                     similar_pokemon = find_similar_pokemon(features, top_k=5)

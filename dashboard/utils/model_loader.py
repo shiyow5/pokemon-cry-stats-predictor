@@ -48,20 +48,54 @@ def load_neural_network_model():
 def load_random_forest_model():
     """
     Load the Random Forest model and scaler.
-    
+
     Returns:
         Tuple of (model, scaler) or (None, None) if not found
     """
     model_path = 'models/pokemon_stats_rf_advanced.joblib'
     scaler_path = 'models/scaler.joblib'
-    
+
     if not os.path.exists(model_path) or not os.path.exists(scaler_path):
         return None, None
-    
+
     model = joblib.load(model_path)
     scaler = joblib.load(scaler_path)
-    
+
     return model, scaler
+
+
+def load_xgboost_models():
+    """
+    Load XGBoost models (one per stat) and scaler.
+
+    Returns:
+        Tuple of (models_dict, scaler) or (None, None) if not found
+        models_dict format: {'hp': model, 'attack': model, ...}
+    """
+    import xgboost as xgb
+
+    stats = ['hp', 'attack', 'defense', 'speed', 'sp_attack', 'sp_defense']
+    scaler_path = 'models/scaler.joblib'
+
+    # Check if all XGBoost model files exist
+    models_dict = {}
+    for stat in stats:
+        model_path = f'models/pokemon_stats_xgb_{stat}.json'
+        if not os.path.exists(model_path):
+            return None, None
+
+        # Load XGBoost model
+        model = xgb.XGBRegressor()
+        model.load_model(model_path)
+        models_dict[stat] = model
+
+    # Load scaler
+    if not os.path.exists(scaler_path):
+        return None, None
+
+    scaler = joblib.load(scaler_path)
+
+    return models_dict, scaler
 
 
 def load_best_model():
@@ -145,14 +179,20 @@ def get_available_models_info():
             if 'random_forest' in model_key.lower() or 'rf' in model_key.lower():
                 model_type = 'rf'
                 model_file = 'models/pokemon_stats_rf_advanced.joblib'
+                available = os.path.exists(model_file)
             elif 'neural' in model_key.lower() or 'nn' in model_key.lower():
                 model_type = 'nn'
                 model_file = 'models/pokemon_stats_nn.keras'
+                available = os.path.exists(model_file)
+            elif 'xgboost' in model_key.lower() or 'xgb' in model_key.lower():
+                model_type = 'xgb'
+                # XGBoost uses multiple files, check if all exist
+                stats = ['hp', 'attack', 'defense', 'speed', 'sp_attack', 'sp_defense']
+                xgb_files = [f'models/pokemon_stats_xgb_{stat}.json' for stat in stats]
+                available = all(os.path.exists(f) for f in xgb_files)
             else:
                 model_type = 'unknown'
-                model_file = None
-            
-            available = model_file is not None and os.path.exists(model_file)
+                available = False
             
             models_info.append({
                 'key': model_key,
@@ -171,10 +211,10 @@ def get_available_models_info():
 def load_model_by_type(model_type):
     """
     Load a model by its type.
-    
+
     Args:
-        model_type: 'rf' for Random Forest, 'nn' for Neural Network
-    
+        model_type: 'rf' for Random Forest, 'nn' for Neural Network, 'xgb' for XGBoost
+
     Returns:
         Tuple of (model, scaler, model_name) or (None, None, None) if not found
     """
@@ -184,6 +224,9 @@ def load_model_by_type(model_type):
     elif model_type == 'nn':
         model, scaler = load_neural_network_model()
         return model, scaler, "Neural Network"
+    elif model_type == 'xgb':
+        model, scaler = load_xgboost_models()
+        return model, scaler, "XGBoost"
     else:
         return None, None, None
 
