@@ -789,6 +789,38 @@ This process may take 5-10 minutes depending on the number of Pokémon.
             st.write("")  # Spacing
             bulk_add_button = st.button("🚀 Bulk Add", type="primary", key="bulk_add_button")
 
+        # Show preview of IDs that will be added
+        st.divider()
+        st.write("**Preview:**")
+
+        # Calculate preview IDs
+        base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        stats_path = os.path.join(base_path, "data/raw_stats.csv")
+
+        try:
+            stats_df = pd.read_csv(stats_path)
+            existing_ids = set(stats_df['species_id'].values)
+            max_pokemon_id = 1025
+            available_ids = sorted([i for i in range(1, max_pokemon_id + 1) if i not in existing_ids])
+
+            if not available_ids:
+                st.warning("⚠️ No new Pokémon available to add!")
+            else:
+                # Preview IDs based on current selection
+                if bulk_mode == "random":
+                    preview_text = f"Will add {min(bulk_count, len(available_ids))} random Pokémon from {len(available_ids)} available"
+                else:  # sequential
+                    preview_ids = available_ids[:min(bulk_count, len(available_ids))]
+                    if len(preview_ids) <= 10:
+                        preview_text = f"Will add: #{', #'.join(map(str, preview_ids))}"
+                    else:
+                        preview_text = f"Will add: #{preview_ids[0]} - #{preview_ids[-1]} ({len(preview_ids)} Pokémon)"
+
+                st.info(f"📋 {preview_text}")
+                st.caption(f"Current dataset: {len(existing_ids)} Pokémon | Available: {len(available_ids)} Pokémon")
+        except Exception as e:
+            st.error(f"Error calculating preview: {str(e)}")
+
         if bulk_add_button:
             st.session_state.bulk_add_expanded = True
             progress_bar = st.progress(0)
@@ -818,24 +850,31 @@ This process may take 5-10 minutes depending on the number of Pokémon.
                     # Add each Pokémon with progress tracking
                     success_count = 0
                     errors = []
-                    
+                    successfully_added_ids = []
+
                     for idx, pokemon_id in enumerate(selected_ids):
                         progress = (idx + 1) / len(selected_ids)
                         progress_bar.progress(progress)
                         status_text.text(f"Adding Pokémon #{pokemon_id}... ({idx + 1}/{len(selected_ids)})")
-                        
+
                         success, message = add_pokemon(str(pokemon_id))
                         if success:
                             success_count += 1
+                            successfully_added_ids.append(pokemon_id)
                         else:
                             errors.append(f"ID {pokemon_id}: {message}")
-                    
+
                     progress_bar.progress(1.0)
                     status_text.text(f"Completed! Added {success_count} Pokémon.")
-                    
+
                     # Show results
                     if success_count > 0:
-                        st.success(f"✅ Successfully added {success_count} Pokémon to the dataset!")
+                        # Show ID range of successfully added Pokemon
+                        if len(successfully_added_ids) <= 10:
+                            ids_display = f"#{', #'.join(map(str, successfully_added_ids))}"
+                        else:
+                            ids_display = f"#{successfully_added_ids[0]} - #{successfully_added_ids[-1]}"
+                        st.success(f"✅ Successfully added {success_count} Pokémon to the dataset!\n\n**Added IDs:** {ids_display}")
 
                     if errors:
                         st.warning(f"⚠️ {len(errors)} Pokémon could not be added:")
