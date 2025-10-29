@@ -157,12 +157,20 @@ Please visit the **📁 Data Management** tab to initialize the dataset before u
     if "selected_model_type" not in st.session_state:
         st.session_state["selected_model_type"] = model_options[default_label]
         st.session_state["selected_model_label"] = default_label
-    
+
+    # Get saved label, but validate it still exists in current options
+    saved_label = st.session_state.get("selected_model_label", default_label)
+    if saved_label not in model_options:
+        # Model options changed (e.g., after retraining), reset to default
+        saved_label = default_label
+        st.session_state["selected_model_label"] = default_label
+        st.session_state["selected_model_type"] = model_options[default_label]
+
     # Model selection radio buttons
     selected_label = st.radio(
         "Select a model for prediction:",
         options=list(model_options.keys()),
-        index=list(model_options.keys()).index(st.session_state.get("selected_model_label", default_label)),
+        index=list(model_options.keys()).index(saved_label),
         help="The best model (highest R² score) is selected by default. You can choose a different model if desired."
     )
     
