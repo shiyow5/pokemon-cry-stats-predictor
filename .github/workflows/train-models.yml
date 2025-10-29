@@ -1,0 +1,110 @@
+name: Train Pokémon ML Models
+
+on:
+  workflow_dispatch:  # Manual trigger from UI or API
+    inputs:
+      model_type:
+        description: 'Model type to train'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - nn
+          - rf
+          - xgb
+      test_size:
+        description: 'Test set size (0.1-0.4)'
+        required: false
+        default: '0.2'
+      random_state:
+        description: 'Random seed for reproducibility'
+        required: false
+        default: '42'
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60  # 1 hour timeout
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Check data availability
+        run: |
+          if [ ! -f "data/raw_stats.csv" ] || [ ! -f "data/audio_features_advanced.csv" ]; then
+            echo "Required data files not found. Running data preparation pipeline..."
+            python scripts/fetch_stats.py
+            python scripts/download_cries.py
+            python scripts/extract_audio_features_advanced.py
+            python scripts/merge_dataset_advanced.py
+          else
+            echo "Data files already exist. Skipping data preparation."
+          fi
+
+      - name: Train models
+        run: |
+          python scripts/train_model_advanced.py \
+            --model-type ${{ inputs.model_type }} \
+            --test-size ${{ inputs.test_size }} \
+            --random-state ${{ inputs.random_state }}
+
+      - name: List generated files
+        run: |
+          echo "=== Models directory ==="
+          ls -lh models/ || echo "No models directory"
+          echo "=== Results directory ==="
+          ls -lh results/ || echo "No results directory"
+
+      - name: Commit and push trained models
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # Add model files and results
+          git add models/*.joblib models/*.keras models/scaler*.joblib results/*.json 2>/dev/null || true
+
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "🤖 Auto-train models: ${{ inputs.model_type }} (test_size=${{ inputs.test_size }}, seed=${{ inputs.random_state }}) [skip ci]"
+            git push
+            echo "✅ Models committed and pushed successfully"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create training summary
+        run: |
+          echo "## 🎉 Training Completed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Model Type:** ${{ inputs.model_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Size:** ${{ inputs.test_size }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Random Seed:** ${{ inputs.random_state }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Find the latest results file
+          LATEST_RESULT=$(ls -t results/model_comparison_*.json 2>/dev/null | head -1)
+          if [ -f "$LATEST_RESULT" ]; then
+            echo "Results saved to: \`$LATEST_RESULT\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "View the updated models in the repository and check the Model Evaluation tab in the Streamlit app." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No results file found" >> $GITHUB_STEP_SUMMARY
+          fi

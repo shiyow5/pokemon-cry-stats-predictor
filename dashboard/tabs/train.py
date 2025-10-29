@@ -10,6 +10,7 @@ import sys
 import json
 from datetime import datetime
 import subprocess
+import requests
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -63,6 +64,75 @@ def get_dataset_info():
     except Exception as e:
         st.error(f"Error loading dataset info: {str(e)}")
         return None
+
+
+def trigger_github_actions_training(model_type, test_size, random_state):
+    """
+    Trigger GitHub Actions workflow to train models
+
+    Args:
+        model_type: Type of model to train ('rf', 'xgb', 'nn', 'all')
+        test_size: Test set size (0.0 to 1.0)
+        random_state: Random seed for reproducibility
+
+    Returns:
+        dict: Success status, message, and workflow URL
+    """
+    # Get GitHub token from secrets
+    github_token = st.secrets.get("GITHUB_TOKEN", "")
+
+    if not github_token:
+        return {
+            "success": False,
+            "error": "GitHub token not configured. Please add GITHUB_TOKEN to Streamlit secrets.\n\n"
+                    "To set up:\n"
+                    "1. Create a Personal Access Token on GitHub with 'repo' and 'workflow' scopes\n"
+                    "2. Add it to Streamlit Cloud: App Settings → Secrets → GITHUB_TOKEN"
+        }
+
+    # GitHub API configuration
+    repo_owner = "shiyow5"
+    repo_name = "pokemon-cry-stats-predictor"
+    workflow_id = "train-models.yml"
+
+    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/actions/workflows/{workflow_id}/dispatches"
+
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {github_token}",
+        "X-GitHub-Api-Version": "2022-11-28"
+    }
+
+    data = {
+        "ref": "main",
+        "inputs": {
+            "model_type": model_type,
+            "test_size": str(test_size),
+            "random_state": str(random_state)
+        }
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=10)
+
+        if response.status_code == 204:
+            # Success (204 No Content)
+            return {
+                "success": True,
+                "message": "Training started successfully on GitHub Actions!",
+                "url": f"https://github.com/{repo_owner}/{repo_name}/actions"
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"GitHub API error: {response.status_code}\n{response.text}"
+            }
+
+    except requests.exceptions.RequestException as e:
+        return {
+            "success": False,
+            "error": f"Failed to trigger GitHub Actions: {str(e)}"
+        }
 
 
 def run_training(model_type, params, test_size, random_state):
@@ -290,73 +360,137 @@ python scripts/merge_dataset_advanced.py
     # Training execution
     st.subheader("🚀 Training Execution")
 
-    # Display warning about training time
-    if model_type == "All Models":
-        st.warning("⚠️ **Streamlit Cloud Performance Warning**\n\n"
-                   "Training all models on Streamlit Cloud free tier may take **30+ minutes** due to CPU limitations "
-                   "(vs 5-8 minutes locally). The training will timeout after 30 minutes.\n\n"
-                   "**Recommendations:**\n"
-                   "- Train models **individually** instead (2-15 minutes each)\n"
-                   "- Or train locally and deploy pre-trained models")
-        st.info("⏱️ Expected time: 5-8 minutes locally, 30+ minutes on Streamlit Cloud free tier")
-    elif model_type == "Neural Network":
-        st.info("⏱️ Neural Network training typically takes 2-5 minutes locally, 10-20 minutes on Streamlit Cloud free tier")
+    # Training method selection
+    training_method = st.radio(
+        "**Select Training Method:**",
+        options=["🤖 GitHub Actions (Recommended)", "☁️ Direct Training (Streamlit Cloud)"],
+        help="GitHub Actions runs training in the background (2-5 minutes). "
+             "Direct training runs on Streamlit Cloud (may take 30+ minutes).",
+        horizontal=True
+    )
+
+    # Display method-specific information
+    if training_method == "🤖 GitHub Actions (Recommended)":
+        st.success("✨ **GitHub Actions Training**\n\n"
+                  "- ⚡ Fast: Completes in 2-5 minutes\n"
+                  "- 🔄 Automatic: Models are automatically committed to repository\n"
+                  "- 🎯 Reliable: No timeout issues\n"
+                  "- 📊 Progress: View workflow progress on GitHub")
+
+        # Display warning about training time
+        if model_type == "All Models":
+            st.info("⏱️ Expected time: **2-5 minutes** for all three models")
+        elif model_type == "Neural Network":
+            st.info("⏱️ Expected time: **2-3 minutes**")
+        else:
+            st.info("⏱️ Expected time: **1-2 minutes**")
     else:
-        st.info("⏱️ Training typically takes 1-2 minutes locally, 5-15 minutes on Streamlit Cloud free tier")
-    
+        # Direct training warnings
+        if model_type == "All Models":
+            st.warning("⚠️ **Streamlit Cloud Performance Warning**\n\n"
+                       "Training all models on Streamlit Cloud free tier may take **30+ minutes** due to CPU limitations "
+                       "(vs 2-5 minutes with GitHub Actions). The training will timeout after 30 minutes.\n\n"
+                       "**Recommendations:**\n"
+                       "- Use **GitHub Actions** instead (2-5 minutes)\n"
+                       "- Train models **individually** (10-15 minutes each)\n"
+                       "- Or train locally and deploy pre-trained models")
+            st.info("⏱️ Expected time: 30+ minutes on Streamlit Cloud (timeout risk)")
+        elif model_type == "Neural Network":
+            st.info("⏱️ Expected time: 10-20 minutes on Streamlit Cloud")
+        else:
+            st.info("⏱️ Expected time: 5-15 minutes on Streamlit Cloud")
+
     # Training button
     if st.button("🏃 Start Training", type="primary", use_container_width=True):
         
-        # Show warning if model already exists
-        model_files = {
-            "Neural Network": "models/pokemon_stats_nn.keras",
-            "Random Forest": "models/pokemon_stats_rf.joblib",
-            "XGBoost": "models/pokemon_stats_xgb.joblib"
+        # Convert model type to code
+        model_code_map = {
+            "Neural Network": "nn",
+            "Random Forest": "rf",
+            "XGBoost": "xgb",
+            "All Models": "all"
         }
+        model_code = model_code_map[model_type]
         
-        model_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            model_files.get(model_type, "")
-        )
-        
-        if os.path.exists(model_path):
-            st.warning(f"⚠️ A {model_type} model already exists and will be overwritten.")
-        
-        with st.spinner(f"Training {model_type} model... This may take several minutes."):
-            
-            # Convert model type to code
-            model_code_map = {
-                "Neural Network": "nn",
-                "Random Forest": "rf",
-                "XGBoost": "xgb",
-                "All Models": "all"
-            }
-            
-            # Run training
-            result = run_training(
-                model_type=model_code_map[model_type],
-                params=params,
-                test_size=test_size,
-                random_state=random_state
-            )
+        # Check which training method is selected
+        if training_method == "🤖 GitHub Actions (Recommended)":
+            # GitHub Actions training
+            with st.spinner("🚀 Triggering GitHub Actions workflow..."):
+                result = trigger_github_actions_training(
+                    model_type=model_code,
+                    test_size=test_size,
+                    random_state=random_state
+                )
             
             if result.get("success"):
-                st.success("✅ Training completed successfully!")
-                
-                # Display training output
-                with st.expander("📋 Training Log", expanded=True):
-                    st.code(result["stdout"], language="text")
-                
-                if result.get("stderr"):
-                    with st.expander("⚠️ Warnings"):
-                        st.code(result["stderr"], language="text")
-                
-                # Suggest going to evaluation tab
-                st.info("👉 Go to the **Model Evaluation** tab to view the training results and metrics.")
-                
+                st.success("✅ " + result["message"])
+                st.info(
+                    f"🔗 **View Progress:** [{result['url']}]({result['url']})
+
+"
+                    "The workflow will:
+"
+                    "1. Set up Python environment
+"
+                    "2. Install dependencies
+"
+                    "3. Train the model(s)
+"
+                    "4. Automatically commit trained models to the repository
+
+"
+                    "⏱️ Expected completion: 2-5 minutes
+
+"
+                    "Once completed, refresh this page to see the updated models in the **Model Evaluation** tab."
+                )
             else:
-                st.error("❌ Training failed!")
+                st.error("❌ Failed to trigger GitHub Actions")
                 st.code(result.get("error", "Unknown error"), language="text")
+        
+        else:
+            # Direct training on Streamlit Cloud
+            # Show warning if model already exists
+            model_files = {
+                "Neural Network": "models/pokemon_stats_nn.keras",
+                "Random Forest": "models/pokemon_stats_rf.joblib",
+                "XGBoost": "models/pokemon_stats_xgb.joblib"
+            }
+            
+            model_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                model_files.get(model_type, "")
+            )
+            
+            if os.path.exists(model_path):
+                st.warning(f"⚠️ A {model_type} model already exists and will be overwritten.")
+            
+            with st.spinner(f"Training {model_type} model... This may take several minutes."):
+                # Run training
+                result = run_training(
+                    model_type=model_code,
+                    params=params,
+                    test_size=test_size,
+                    random_state=random_state
+                )
+                
+                if result.get("success"):
+                    st.success("✅ Training completed successfully!")
+                    
+                    # Display training output
+                    with st.expander("📋 Training Log", expanded=True):
+                        st.code(result["stdout"], language="text")
+                    
+                    if result.get("stderr"):
+                        with st.expander("⚠️ Warnings"):
+                            st.code(result["stderr"], language="text")
+                    
+                    # Suggest going to evaluation tab
+                    st.info("👉 Go to the **Model Evaluation** tab to view the training results and metrics.")
+                    
+                else:
+                    st.error("❌ Training failed!")
+                    st.code(result.get("error", "Unknown error"), language="text")
     
     # Additional information
     st.divider()

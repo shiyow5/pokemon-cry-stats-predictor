@@ -557,9 +557,54 @@ streamlit run dashboard/app.py
   - Streamlit Cloud: 30分以上（タイムアウトのリスクあり）
 
 - **推奨事項**:
-  1. **ローカルでトレーニング**: ローカル環境でモデルを訓練し、pre-trained modelsをデプロイ
-  2. **個別モデルを訓練**: "All Models"ではなく、1つずつモデルを訓練（2-15分/モデル）
-  3. **予測とEvaluation用途**: Streamlit Cloudは予測とモデル評価に使用
+  1. **GitHub Actionsでトレーニング（推奨）**: GitHub Actionsワークフローで自動訓練（2-5分で完了）
+  2. **ローカルでトレーニング**: ローカル環境でモデルを訓練し、pre-trained modelsをデプロイ
+  3. **個別モデルを訓練**: "All Models"ではなく、1つずつモデルを訓練（2-15分/モデル）
+  4. **予測とEvaluation用途**: Streamlit Cloudは予測とモデル評価に使用
+
+### GitHub Actions統合（推奨）
+
+Streamlit Cloud Free Tierの制約を回避するため、GitHub Actionsを使用してモデルを訓練できます。
+
+**利点:**
+- ⚡ **高速**: 2-5分で完了（Streamlit Cloudの10倍以上高速）
+- 🔄 **自動化**: 訓練済みモデルを自動的にリポジトリにコミット
+- 🎯 **信頼性**: タイムアウトやメモリ不足の問題なし
+- 📊 **進捗確認**: GitHub ActionsのUIで実行状況を確認可能
+
+**セットアップ手順:**
+
+1. **GitHub Personal Access Tokenの作成**
+   - GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
+   - "Generate new token (classic)" をクリック
+   - Scope: `repo` と `workflow` を選択
+   - トークンを生成してコピー（一度しか表示されません）
+
+2. **Streamlit Secretsに追加**
+   - Streamlit Cloud: App Settings → Secrets
+   - 以下を追加:
+     ```toml
+     GITHUB_TOKEN = "ghp_your_token_here"
+     ```
+
+3. **Streamlitダッシュボードから使用**
+   - Model Training タブを開く
+   - "Training Method" で "🤖 GitHub Actions (Recommended)" を選択
+   - モデルタイプとパラメータを設定
+   - "🏃 Start Training" をクリック
+   - GitHub Actionsワークフローが自動的に開始されます
+
+**手動実行（GitHub UIから）:**
+   - リポジトリの "Actions" タブを開く
+   - "Train Pokémon ML Models" ワークフローを選択
+   - "Run workflow" をクリック
+   - パラメータを入力して実行
+
+**トレーニング時間:**
+- Neural Network単体: 2-3分
+- Random Forest単体: 1-2分
+- XGBoost単体: 1-2分
+- All Models: 2-5分
 
 ### 機能
 
@@ -594,7 +639,22 @@ streamlit run dashboard/app.py
 - キャッシュ: `@st.cache_data`デコレータ
 
 #### 📊 Model Training Tab
-モデルの訓練と評価を行います（実装予定）。
+モデルの訓練と評価を行います。
+
+**主な機能:**
+- **トレーニング方法の選択**:
+  - 🤖 **GitHub Actions (推奨)**: GitHub Actionsで自動訓練（2-5分）
+  - ☁️ **Direct Training**: Streamlit Cloud上で直接訓練（30分以上、タイムアウトリスク）
+- **モデル選択**: Neural Network、Random Forest、XGBoost、All Models
+- **パラメータ設定**: Test size、Random seed、モデル固有のハイパーパラメータ
+- **進捗確認**: GitHub Actionsの場合はワークフローページへのリンクを表示
+- **結果表示**: トレーニングログと警告の表示
+
+**推奨設定:**
+- GitHub Actions方式を使用（高速で信頼性が高い）
+- Neural Networkモデル（Overall R² = 0.116で最良）
+- Test size = 0.2（デフォルト）
+- Random seed = 42（再現性のため）
 
 #### 🔮 Prediction Tab
 新しい音声ファイルからステータスを予測します（実装予定）。

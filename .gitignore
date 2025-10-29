@@ -48,8 +48,9 @@ data/cries/
 data/*.csv
 
 # Models (can be large)
-models/*.joblib
-models/*.keras
+# Note: .joblib and .keras files are tracked for GitHub Actions auto-deployment
+# models/*.joblib
+# models/*.keras
 models/*.h5
 models/*.pkl
 models/*.pt
@@ -57,7 +58,8 @@ models/*.pth
 models/*.onnx
 
 # Results
-results/*.json
+# Note: .json files are tracked for GitHub Actions auto-deployment
+# results/*.json
 results/*.png
 results/*.jpg
 results/*.pdf
