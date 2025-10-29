@@ -164,10 +164,10 @@ def run_training(model_type, params, test_size, random_state):
             "--random-state", str(random_state)
         ]
 
-        # Add model-specific parameters
+        # Add model-specific parameters as JSON
         if params:
-            for key, value in params.items():
-                cmd.extend([f"--{key}", str(value)])
+            import json
+            cmd.extend(["--params", json.dumps(params)])
 
         # Run subprocess with timeout (30 minutes = 1800 seconds)
         process = subprocess.Popen(
@@ -425,23 +425,13 @@ python scripts/merge_dataset_advanced.py
             if result.get("success"):
                 st.success("✅ " + result["message"])
                 st.info(
-                    f"🔗 **View Progress:** [{result['url']}]({result['url']})
-
-"
-                    "The workflow will:
-"
-                    "1. Set up Python environment
-"
-                    "2. Install dependencies
-"
-                    "3. Train the model(s)
-"
-                    "4. Automatically commit trained models to the repository
-
-"
-                    "⏱️ Expected completion: 2-5 minutes
-
-"
+                    f"🔗 **View Progress:** [{result['url']}]({result['url']})\n\n"
+                    "The workflow will:\n"
+                    "1. Set up Python environment\n"
+                    "2. Install dependencies\n"
+                    "3. Train the model(s)\n"
+                    "4. Automatically commit trained models to the repository\n\n"
+                    "⏱️ Expected completion: 2-5 minutes\n\n"
                     "Once completed, refresh this page to see the updated models in the **Model Evaluation** tab."
                 )
             else:
