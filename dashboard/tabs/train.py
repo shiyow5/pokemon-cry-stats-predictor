@@ -120,7 +120,10 @@ def trigger_github_actions_training(model_type, test_size, random_state):
             return {
                 "success": True,
                 "message": "Training started successfully on GitHub Actions!",
-                "url": f"https://github.com/{repo_owner}/{repo_name}/actions"
+                "url": f"https://github.com/{repo_owner}/{repo_name}/actions",
+                "repo_owner": repo_owner,
+                "repo_name": repo_name,
+                "workflow_id": workflow_id
             }
         else:
             return {
@@ -133,6 +136,80 @@ def trigger_github_actions_training(model_type, test_size, random_state):
             "success": False,
             "error": f"Failed to trigger GitHub Actions: {str(e)}"
         }
+
+
+def get_latest_workflow_run(repo_owner, repo_name, workflow_id):
+    """
+    Get the latest workflow run for a specific workflow
+
+    Args:
+        repo_owner: GitHub repository owner
+        repo_name: GitHub repository name
+        workflow_id: Workflow file name
+
+    Returns:
+        dict: Workflow run information or None
+    """
+    github_token = st.secrets.get("GITHUB_TOKEN", "")
+    if not github_token:
+        return None
+
+    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/actions/workflows/{workflow_id}/runs"
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {github_token}",
+        "X-GitHub-Api-Version": "2022-11-28"
+    }
+
+    try:
+        response = requests.get(url, headers=headers, params={"per_page": 1}, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("workflow_runs"):
+                return data["workflow_runs"][0]
+        return None
+    except requests.exceptions.RequestException:
+        return None
+
+
+def check_workflow_status(repo_owner, repo_name, run_id):
+    """
+    Check the status of a specific workflow run
+
+    Args:
+        repo_owner: GitHub repository owner
+        repo_name: GitHub repository name
+        run_id: Workflow run ID
+
+    Returns:
+        dict: Status information
+    """
+    github_token = st.secrets.get("GITHUB_TOKEN", "")
+    if not github_token:
+        return None
+
+    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/actions/runs/{run_id}"
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {github_token}",
+        "X-GitHub-Api-Version": "2022-11-28"
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                "status": data.get("status"),  # queued, in_progress, completed
+                "conclusion": data.get("conclusion"),  # success, failure, cancelled, etc.
+                "created_at": data.get("created_at"),
+                "updated_at": data.get("updated_at"),
+                "html_url": data.get("html_url"),
+                "name": data.get("name")
+            }
+        return None
+    except requests.exceptions.RequestException:
+        return None
 
 
 def run_training(model_type, params, test_size, random_state):
@@ -424,16 +501,23 @@ python scripts/merge_dataset_advanced.py
             
             if result.get("success"):
                 st.success("✅ " + result["message"])
+
+                # Store workflow information in session state for progress monitoring
+                st.session_state.workflow_monitoring = {
+                    "repo_owner": result["repo_owner"],
+                    "repo_name": result["repo_name"],
+                    "workflow_id": result["workflow_id"],
+                    "url": result["url"],
+                    "start_time": datetime.now()
+                }
+
                 st.info(
-                    f"🔗 **View Progress:** [{result['url']}]({result['url']})\n\n"
-                    "The workflow will:\n"
-                    "1. Set up Python environment\n"
-                    "2. Install dependencies\n"
-                    "3. Train the model(s)\n"
-                    "4. Automatically commit trained models to the repository\n\n"
-                    "⏱️ Expected completion: 2-5 minutes\n\n"
-                    "Once completed, refresh this page to see the updated models in the **Model Evaluation** tab."
+                    f"🔗 **View on GitHub:** [{result['url']}]({result['url']})\n\n"
+                    "Progress will be displayed below. The page will auto-refresh every 10 seconds."
                 )
+
+                # Trigger rerun to start monitoring
+                st.rerun()
             else:
                 st.error("❌ Failed to trigger GitHub Actions")
                 st.code(result.get("error", "Unknown error"), language="text")
@@ -481,7 +565,87 @@ python scripts/merge_dataset_advanced.py
                 else:
                     st.error("❌ Training failed!")
                     st.code(result.get("error", "Unknown error"), language="text")
-    
+
+    # GitHub Actions progress monitoring
+    if "workflow_monitoring" in st.session_state:
+        st.divider()
+        st.subheader("📊 GitHub Actions Progress")
+
+        monitoring_info = st.session_state.workflow_monitoring
+
+        # Get the latest workflow run
+        with st.spinner("Checking workflow status..."):
+            import time
+            time.sleep(2)  # Wait a bit for the workflow to be created
+
+            latest_run = get_latest_workflow_run(
+                monitoring_info["repo_owner"],
+                monitoring_info["repo_name"],
+                monitoring_info["workflow_id"]
+            )
+
+        if latest_run:
+            run_id = latest_run["id"]
+            status_info = check_workflow_status(
+                monitoring_info["repo_owner"],
+                monitoring_info["repo_name"],
+                run_id
+            )
+
+            if status_info:
+                status = status_info["status"]
+                conclusion = status_info["conclusion"]
+
+                # Display status with appropriate icon and color
+                if status == "queued":
+                    st.info("⏳ **Status:** Queued - Waiting to start")
+                elif status == "in_progress":
+                    st.info("🔄 **Status:** In Progress - Training models...")
+                elif status == "completed":
+                    if conclusion == "success":
+                        st.success("✅ **Status:** Completed Successfully!")
+                        st.balloons()
+                        st.info("🎉 Training completed! Refresh the **Model Evaluation** tab to see the updated results.")
+                        # Clear monitoring state
+                        del st.session_state.workflow_monitoring
+                    elif conclusion == "failure":
+                        st.error("❌ **Status:** Failed")
+                        st.warning("Please check the workflow logs on GitHub for details.")
+                        # Clear monitoring state
+                        del st.session_state.workflow_monitoring
+                    elif conclusion == "cancelled":
+                        st.warning("⚠️ **Status:** Cancelled")
+                        # Clear monitoring state
+                        del st.session_state.workflow_monitoring
+                    else:
+                        st.info(f"**Status:** {status} ({conclusion})")
+
+                # Display workflow link
+                if status_info.get("html_url"):
+                    st.markdown(f"🔗 [View detailed logs on GitHub]({status_info['html_url']})")
+
+                # Auto-refresh if workflow is still running
+                if status in ["queued", "in_progress"]:
+                    st.info("🔄 Auto-refreshing in 10 seconds...")
+                    time.sleep(10)
+                    st.rerun()
+            else:
+                st.warning("Unable to fetch workflow status. Please check GitHub manually.")
+                st.markdown(f"🔗 [View on GitHub]({monitoring_info['url']})")
+        else:
+            st.warning("Workflow run not found yet. It may take a few seconds to appear.")
+            st.markdown(f"🔗 [View on GitHub]({monitoring_info['url']})")
+
+            # Auto-refresh to check again
+            st.info("🔄 Refreshing in 5 seconds...")
+            time.sleep(5)
+            st.rerun()
+
+        # Add a button to stop monitoring
+        if st.button("⏹️ Stop Monitoring"):
+            del st.session_state.workflow_monitoring
+            st.rerun()
+
     # Additional information
     st.divider()
     
