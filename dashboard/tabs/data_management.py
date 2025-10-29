@@ -802,9 +802,8 @@ This process may take 5-10 minutes depending on the number of Pokémon.
                 stats_df = pd.read_csv(stats_path)
                 existing_ids = set(stats_df['species_id'].values)
 
-                # Limit to Generation 1-8 (ID 1-898) for better compatibility
-                # Generation 9+ has different data structure in some APIs
-                max_pokemon_id = 898
+                # Support all Pokemon generations (ID 1-1025)
+                max_pokemon_id = 1025
                 available_ids = sorted([i for i in range(1, max_pokemon_id + 1) if i not in existing_ids])
                 
                 if not available_ids:
