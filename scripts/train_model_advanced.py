@@ -297,17 +297,47 @@ def perform_cross_validation(X, y, model_type='rf'):
     }
 
 
+def cleanup_old_results(keep_latest=5):
+    """
+    古い結果ファイルを削除して、最新のN個のみを保持
+
+    Args:
+        keep_latest: 保持する最新ファイルの数（デフォルト: 5）
+    """
+    import glob
+
+    # 結果ファイルを取得して日時順にソート
+    result_files = sorted(glob.glob(os.path.join(RESULTS_DIR, "model_comparison_*.json")))
+
+    # 削除対象のファイル数を計算
+    if len(result_files) > keep_latest:
+        files_to_delete = result_files[:-keep_latest]
+
+        print(f"\n🧹 Cleaning up old result files (keeping latest {keep_latest})...")
+        for file in files_to_delete:
+            try:
+                os.remove(file)
+                print(f"  Deleted: {os.path.basename(file)}")
+            except Exception as e:
+                print(f"  Failed to delete {os.path.basename(file)}: {e}")
+
+        print(f"✅ Cleanup completed. Removed {len(files_to_delete)} old files.")
+
+
 def save_results(all_results):
     """結果を保存"""
     os.makedirs(RESULTS_DIR, exist_ok=True)
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     results_file = os.path.join(RESULTS_DIR, f"model_comparison_{timestamp}.json")
-    
+
     with open(results_file, 'w') as f:
         json.dump(all_results, f, indent=2)
-    
+
     print(f"\n✅ Results saved to {results_file}")
+
+    # 古い結果ファイルをクリーンアップ（最新5個を保持）
+    cleanup_old_results(keep_latest=5)
 
 
 def save_best_model(best_model, best_model_name, scaler=None):
