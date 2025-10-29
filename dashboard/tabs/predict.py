@@ -271,8 +271,15 @@ Please visit the **📁 Data Management** tab to initialize the dataset before u
                             predictions[stat] = float(pred)
                     else:
                         # Neural Network or Random Forest: single model for all stats
-                        predictions_array = model.predict(features_scaled, verbose=0)[0]
-                        predictions = dict(zip(TARGET_STATS, predictions_array))
+                        model_type = st.session_state.get("selected_model_type")
+                        if model_type == "nn":
+                            predictions_array = model.predict(features_scaled, verbose=0)[0]
+                        else:
+                            predictions_array = model.predict(features_scaled)[0]
+                        predictions = {
+                            stat: float(value)
+                            for stat, value in zip(TARGET_STATS, predictions_array)
+                        }
                     
                     # Find similar Pokémon
                     similar_pokemon = find_similar_pokemon(features, top_k=5)
