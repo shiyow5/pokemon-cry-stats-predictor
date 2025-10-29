@@ -905,6 +905,9 @@ This process may take 5-10 minutes depending on the number of Pokémon.
     if 'danger_zone_expanded' not in st.session_state:
         st.session_state.danger_zone_expanded = False
 
+    if st.session_state.get('reset_confirm_text'):
+        st.session_state.danger_zone_expanded = True
+
     with st.expander("⚠️ Danger Zone - Reset Dataset", expanded=st.session_state.danger_zone_expanded):
         st.warning("**Warning**: This will delete ALL Pokémon from the training dataset!")
         st.write("""
